@@ -3,13 +3,21 @@ unit TestGUnzip;
 interface
 
 uses
+  Classes,
+  System.ZLib,
   TestFramework;
 
 type
   TTestGUnzip = class(TTestCase)
   private
+    FMemoryStream: TMemoryStream;
+    FDataStream: TStringStream;
+    FGZip: TZDecompressionStream;
     function CompressFile: string;
     procedure CorruptGzip(const AFile: string);
+  public
+    procedure SetUp; override;
+    procedure TearDown; override;
   published
     procedure TestNormal;
     procedure TestCorrupted;
@@ -20,8 +28,7 @@ type
 implementation
 
 uses
-  SysUtils, Classes, Windows,
-  System.ZLib;
+  SysUtils, Windows;
 
 { TTestGUnzip }
 
@@ -40,46 +47,51 @@ begin
   end;
 end;
 
+procedure TTestGUnzip.SetUp;
+begin
+  inherited;
+  FMemoryStream := TMemoryStream.Create;
+  FDataStream := TStringStream.Create;;
+  FGZip := nil;
+end;
+
+procedure TTestGUnzip.TearDown;
+begin
+  FreeAndNil(FMemoryStream);
+  FreeAndNil(FDataStream);
+  FreeAndNil(FGZip);
+  inherited;
+end;
+
 procedure TTestGUnzip.TestCharges;
 var
-  LGZip: TZDecompressionStream;
-  LDataStream: TStringStream;
   LFileStream: TFileStream;
   LFile: string;
 begin
   LFile := CompressFile;
   LFileStream := TFileStream.Create(LFile, fmOpenRead);
   try
-    LGZip := TZDecompressionStream.Create(LFileStream, 15 + 16);
-    LDataStream := TStringStream.Create;
-    LDataStream.CopyFrom(LGZip, 0);
-    CheckEquals(57060, LDataStream.Size);
+    FGZip := TZDecompressionStream.Create(LFileStream, 15 + 16);
+    FDataStream.CopyFrom(FGZip, 0);
+    CheckEquals(57060, FDataStream.Size);
   finally
     FreeAndNil(LFileStream);
   end;
 end;
 
 procedure TTestGUnzip.TestCorrupted;
-var
-  LMemoryStream: TMemoryStream;
-  LGZip: TZDecompressionStream;
-  LDataStream: TStringStream;
 begin
   // this is a
   // $ echo -n Hello, world | gzip -f | xxd -ps -c 40
-  LMemoryStream := TMemoryStream.Create;
-  LMemoryStream.Size := 32;
-  CheckEquals(32, HexToBin('1f8b0800ad5d9f5c0003f348cdc9c9d75128cf2fca490100c2a99aefedEFFF00', LMemoryStream.Memory, LMemoryStream.Size));
+  FMemoryStream.Size := 32;
+  CheckEquals(32, HexToBin('1f8b0800ad5d9f5c0003f348cdc9c9d75128cf2fca490100c2a99aefedEFFF00', FMemoryStream.Memory, FMemoryStream.Size));
   StartExpectingException(EZDecompressionError);
-  LGZip := TZDecompressionStream.Create(LMemoryStream, 15 + 16);
-  LDataStream := TStringStream.Create;
-  LDataStream.CopyFrom(LGZip, 0);
+  FGZip := TZDecompressionStream.Create(FMemoryStream, 15 + 16);
+  FDataStream.CopyFrom(FGZip, 0);
 end;
 
 procedure TTestGUnzip.TestCorruptedCharges;
 var
-  LGZip: TZDecompressionStream;
-  LDataStream: TStringStream;
   LFileStream: TFileStream;
   LFile: string;
 begin
@@ -87,12 +99,11 @@ begin
   CorruptGZip(LFile);
   LFileStream := TFileStream.Create(LFile, fmOpenRead);
   try
-    LGZip := TZDecompressionStream.Create(LFileStream, 15 + 16);
-    LDataStream := TStringStream.Create;
+    FGZip := TZDecompressionStream.Create(LFileStream, 15 + 16);
     StartExpectingException(EZDecompressionError);
-    LDataStream.CopyFrom(LGZip, 0);
+    FDataStream.CopyFrom(FGZip, 0);
   finally
-   FreeAndNil(LFileStream);
+    FreeAndNil(LFileStream);
   end;
 end;
 
@@ -122,20 +133,14 @@ begin
 end;
 
 procedure TTestGUnzip.TestNormal;
-var
-  LMemoryStream: TMemoryStream;
-  LGZip: TZDecompressionStream;
-  LDataStream: TStringStream;
 begin
   // this is a
   // $ echo -n Hello, world | gzip -f | xxd -ps -c 40
-  LMemoryStream := TMemoryStream.Create;
-  LMemoryStream.Size := 32;
-  CheckEquals(32, HexToBin('1f8b0800ad5d9f5c0003f348cdc9c9d75128cf2fca490100c2a99ae70c000000', LMemoryStream.Memory, LMemoryStream.Size));
-  LGZip := TZDecompressionStream.Create(LMemoryStream, 15 + 16);
-  LDataStream := TStringStream.Create;
-  LDataStream.CopyFrom(LGZip, 0);
-  CheckEquals('Hello, world', LDataStream.DataString);
+  FMemoryStream.Size := 32;
+  CheckEquals(32, HexToBin('1f8b0800ad5d9f5c0003f348cdc9c9d75128cf2fca490100c2a99ae70c000000', FMemoryStream.Memory, FMemoryStream.Size));
+  FGZip := TZDecompressionStream.Create(FMemoryStream, 15 + 16);
+  FDataStream.CopyFrom(FGZip, 0);
+  CheckEquals('Hello, world', FDataStream.DataString);
 end;
 
 initialization

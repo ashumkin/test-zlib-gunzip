@@ -21,6 +21,9 @@ uses
   TestGUnzip in 'TestGUnzip.pas';
 
 begin
+  {$IFDEF DEBUG}
+  ReportMemoryLeaksOnShutdown := True;
+  {$ENDIF DEBUG}
   DUnitTestRunner.RunRegisteredTests;
 end.
 
