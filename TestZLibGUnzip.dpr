@@ -14,6 +14,8 @@ program TestZLibGUnzip;
 {$APPTYPE CONSOLE}
 {$ENDIF}
 
+{$R *.dres}
+
 uses
   DUnitTestRunner,
   TestGUnzip in 'TestGUnzip.pas';
